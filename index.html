@@ -1,0 +1,419 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>iCloud Cleaner</title>
+<link rel="icon" href="data:,">
+<style>
+:root {
+  --bg: #f6f6f4; --panel: #ffffff; --text: #1d1d1f; --muted: #6e6e73; --line: #e3e3e0;
+  --accent: #0a66d8; --danger: #d92d20; --keep: #1f8a4c; --bar: #0a66d8; --chip: #efefec;
+  --shadow: 0 1px 2px rgba(0,0,0,.06), 0 4px 16px rgba(0,0,0,.05);
+}
+@media (prefers-color-scheme: dark) {
+  :root { --bg: #161617; --panel: #1f1f21; --text: #f2f2f2; --muted: #9a9aa0; --line: #2f2f33;
+          --accent: #4c9bff; --danger: #ff5b4f; --keep: #3fbf74; --bar: #4c9bff; --chip: #2a2a2d;
+          --shadow: 0 1px 2px rgba(0,0,0,.4); }
+}
+* { box-sizing: border-box; }
+body { margin: 0; background: var(--bg); color: var(--text);
+       font: 14px/1.45 -apple-system, BlinkMacSystemFont, "SF Pro Text", system-ui, sans-serif; }
+header { position: sticky; top: 0; z-index: 5; background: var(--bg); border-bottom: 1px solid var(--line); }
+.wrap { max-width: 1200px; margin: 0 auto; padding: 0 20px; }
+.top { display: flex; align-items: baseline; gap: 12px; padding: 16px 0 8px; }
+.top h1 { font-size: 20px; margin: 0; font-weight: 650; }
+.top .sub { color: var(--muted); }
+nav { display: flex; gap: 4px; overflow-x: auto; padding-bottom: 8px; }
+nav button { border: 0; background: none; color: var(--muted); padding: 7px 12px; border-radius: 8px;
+             font: inherit; cursor: pointer; white-space: nowrap; }
+nav button:hover { background: var(--chip); color: var(--text); }
+nav button.on { background: var(--text); color: var(--bg); }
+nav .n { opacity: .7; margin-left: 4px; font-variant-numeric: tabular-nums; }
+main { padding: 28px 0 120px; }
+h2 { font-size: 17px; margin: 0 0 4px; }
+p.lead { color: var(--muted); margin: 0 0 16px; max-width: 720px; }
+.panel { background: var(--panel); border: 1px solid var(--line); border-radius: 12px; box-shadow: var(--shadow); }
+.toolbar { display: flex; flex-wrap: wrap; align-items: center; gap: 12px; margin-bottom: 16px; }
+.btn { border: 1px solid var(--line); background: var(--panel); color: var(--text); padding: 7px 12px;
+       border-radius: 8px; font: inherit; cursor: pointer; }
+.btn:hover { border-color: var(--muted); }
+.btn.primary { background: var(--danger); border-color: var(--danger); color: #fff; font-weight: 600; }
+.btn.primary:disabled { opacity: .4; cursor: default; }
+.btn.small { padding: 3px 9px; font-size: 13px; }
+.muted { color: var(--muted); }
+.num { font-variant-numeric: tabular-nums; }
+
+/* overview */
+.ov-row { display: grid; grid-template-columns: 220px 1fr 90px 170px; gap: 16px; align-items: center;
+          padding: 12px 16px; border-top: 1px solid var(--line); }
+.ov-row:first-child { border-top: 0; }
+.ov-row .label b { display: block; font-weight: 600; }
+.ov-row .label span { color: var(--muted); font-size: 12px; }
+.ov-row .size { text-align: right; font-weight: 600; }
+.ov-row .act { text-align: right; }
+.track { height: 10px; background: var(--chip); border-radius: 5px; overflow: hidden; }
+.track i { display: block; height: 100%; background: var(--bar); border-radius: 5px; min-width: 2px; }
+.ov-row.indent .label { padding-left: 14px; }
+.ov-row.indent .track i { opacity: .55; }
+.total { display: flex; gap: 32px; margin-bottom: 16px; flex-wrap: wrap; }
+.total div b { display: block; font-size: 26px; font-weight: 650; }
+.note { padding: 12px 16px; border-top: 1px solid var(--line); color: var(--muted); font-size: 13px; }
+
+/* tiles */
+.grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(124px, 1fr)); gap: 6px; }
+.tile { position: relative; aspect-ratio: 1; border-radius: 8px; overflow: hidden; cursor: pointer;
+        background: var(--chip); border: 0; padding: 0; }
+.tile img { width: 100%; height: 100%; object-fit: cover; display: block; transition: opacity .1s; }
+.tile .meta { position: absolute; left: 0; right: 0; bottom: 0; padding: 14px 6px 4px; font-size: 11px; color: #fff;
+              background: linear-gradient(transparent, rgba(0,0,0,.65)); text-align: left;
+              display: flex; justify-content: space-between; }
+.tile .badge { position: absolute; top: 6px; left: 6px; font-size: 11px; font-weight: 600; padding: 1px 6px;
+               border-radius: 4px; color: #fff; }
+.tile.keep .badge { background: var(--keep); }
+.tile.sel { outline: 3px solid var(--danger); outline-offset: -3px; }
+.tile.sel img { opacity: .55; }
+.tile.sel .badge { background: var(--danger); }
+.tile .zoom { position: absolute; top: 4px; right: 4px; width: 26px; height: 26px; border-radius: 6px; border: 0;
+              background: rgba(0,0,0,.5); color: #fff; cursor: zoom-in; opacity: 0; font-size: 14px; }
+.tile:hover .zoom, .tile:focus-visible .zoom { opacity: 1; }
+.tile:focus-visible { outline: 3px solid var(--accent); outline-offset: 1px; }
+.group { padding: 12px; margin-bottom: 10px; }
+.group .grid { grid-template-columns: repeat(auto-fill, 124px); }
+.tile .nothumb { position: absolute; inset: 0; display: flex; align-items: center; justify-content: center; color: var(--muted); font-size: 12px; }
+.group .gh { display: flex; justify-content: space-between; color: var(--muted); font-size: 12px; margin-bottom: 8px; }
+
+/* messages */
+.mgrid { display: grid; grid-template-columns: repeat(auto-fill, minmax(190px, 1fr)); gap: 12px; }
+.mcard { overflow: hidden; display: flex; flex-direction: column; }
+.mcard .thumb { position: relative; aspect-ratio: 4 / 3; width: 100%; border: 0; padding: 0; background: var(--chip); cursor: pointer; display: block; }
+.mcard .thumb { overflow: hidden; }
+.mcard .thumb img { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; display: block; }
+.mcard .thumb .meta { position: absolute; left: 0; right: 0; bottom: 0; padding: 14px 8px 5px; font-size: 11px; color: #fff;
+                      background: linear-gradient(transparent, rgba(0,0,0,.65)); display: flex; justify-content: space-between; }
+.mcard .thumb:hover img { opacity: .85; }
+.mcard .thumb:focus-visible { outline: 3px solid var(--accent); outline-offset: -3px; }
+.mcard .cap { padding: 8px 10px 10px; font-size: 12px; display: flex; flex-direction: column; gap: 1px; }
+.mcard .who { font-weight: 600; font-size: 13px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.mcard .fname { color: var(--muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.linkbtn { align-self: flex-start; border: 0; background: none; padding: 4px 0 0; color: var(--accent); font: inherit; cursor: pointer; }
+.linkbtn:hover { text-decoration: underline; }
+/* tables */
+table { width: 100%; border-collapse: collapse; }
+th, td { text-align: left; padding: 8px 12px; border-top: 1px solid var(--line); vertical-align: middle; }
+th { color: var(--muted); font-weight: 500; font-size: 12px; border-top: 0; }
+td.r, th.r { text-align: right; white-space: nowrap; }
+td .path { color: var(--muted); font-size: 12px; word-break: break-all; }
+td.name { word-break: break-all; }
+tr.sel td { background: color-mix(in srgb, var(--danger) 10%, transparent); }
+input[type=checkbox] { width: 16px; height: 16px; accent-color: var(--danger); cursor: pointer; }
+
+/* progress, footer, modal, toast */
+.progress { height: 8px; background: var(--chip); border-radius: 4px; overflow: hidden; max-width: 420px; }
+.progress i { display: block; height: 100%; background: var(--accent); }
+footer { position: fixed; left: 0; right: 0; bottom: 0; background: var(--panel); border-top: 1px solid var(--line);
+         box-shadow: 0 -4px 16px rgba(0,0,0,.06); transform: translateY(100%); transition: transform .15s; z-index: 6; }
+footer:not(.show) { visibility: hidden; }
+footer.show { transform: none; }
+footer .wrap { display: flex; align-items: center; gap: 12px; padding-top: 12px; padding-bottom: 12px; }
+footer .what { flex: 1; }
+footer .what b { font-size: 15px; }
+.modal { position: fixed; inset: 0; background: rgba(0,0,0,.85); display: none; align-items: center;
+         justify-content: center; z-index: 10; cursor: zoom-out; flex-direction: column; gap: 10px; }
+.modal.show { display: flex; }
+.modal img { max-width: 92vw; max-height: 84vh; border-radius: 6px; }
+.modal .cap { color: #ddd; font-size: 13px; }
+.toast { position: fixed; top: 16px; left: 50%; transform: translateX(-50%); background: var(--text); color: var(--bg);
+         padding: 10px 16px; border-radius: 10px; z-index: 11; display: none; max-width: 90vw; box-shadow: var(--shadow); }
+.toast.err { background: var(--danger); color: #fff; }
+.empty { padding: 40px; text-align: center; color: var(--muted); }
+input[type=range] { width: 180px; accent-color: var(--accent); }
+@media (max-width: 760px) {
+  .ov-row { grid-template-columns: 1fr 80px; }
+  .ov-row .bar, .ov-row .act { grid-column: 1 / -1; text-align: left; }
+  .grid, .group .grid { grid-template-columns: repeat(3, 1fr); }
+  .mgrid { grid-template-columns: repeat(2, 1fr); }
+  .hide-sm { display: none; }
+}
+</style>
+</head>
+<body>
+<header>
+  <div class="wrap">
+    <div class="top"><h1>iCloud Cleaner</h1><span class="sub" id="sub"></span></div>
+    <nav id="tabs"></nav>
+  </div>
+</header>
+<main class="wrap" id="main"></main>
+<footer id="footer"><div class="wrap">
+  <div class="what" id="selText"></div>
+  <button class="btn" id="clearBtn">Clear</button>
+  <button class="btn primary" id="delBtn"></button>
+</div></footer>
+<div class="modal" id="modal"><img id="modalImg" alt=""><div class="cap" id="modalCap"></div></div>
+<div class="toast" id="toast"></div>
+
+<script>
+const TOKEN = "__TOKEN__";
+const $ = (s) => document.querySelector(s);
+const esc = (s) => String(s).replace(/[&<>"']/g, (c) => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
+const fmt = (b) => !b ? "0 KB" : b >= 1e9 ? (b / 1e9).toFixed(1) + " GB" : b >= 1e6 ? Math.round(b / 1e6) + " MB" : Math.max(1, Math.round(b / 1e3)) + " KB";
+const day = (t) => new Date(t * 1000).toLocaleDateString(undefined, { year: "numeric", month: "short", day: "numeric" });
+const dur = (s) => s >= 3600 ? `${Math.floor(s / 3600)}h ${Math.floor(s % 3600 / 60)}m` : `${Math.floor(s / 60)}:${String(s % 60).padStart(2, "0")}`;
+const api = (p) => fetch(p).then((r) => r.json());
+async function post(p, body) {
+  const r = await fetch(p, { method: "POST", headers: { "X-Token": TOKEN, "Content-Type": "application/json" }, body: JSON.stringify(body) });
+  const j = await r.json();
+  if (!r.ok) throw new Error(j.error || "Request failed");
+  return j;
+}
+function toast(msg, err) {
+  const t = $("#toast"); t.textContent = msg; t.className = "toast" + (err ? " err" : ""); t.style.display = "block";
+  clearTimeout(toast.h); toast.h = setTimeout(() => (t.style.display = "none"), err ? 8000 : 6000);
+}
+
+const APP_HINTS = {
+  WhatsApp: "Chat backup. Shrink it in WhatsApp on iPhone: Settings → Chats → Chat Backup",
+  Books: "Books and PDFs synced by Apple Books",
+};
+const TABS = [
+  { id: "overview", label: "Overview" },
+  { id: "dupes", label: "Near-duplicates" },
+  { id: "videos", label: "Biggest videos" },
+  { id: "screens", label: "Screenshots & recordings" },
+  { id: "drive", label: "iCloud Drive" },
+  { id: "messages", label: "Messages" },
+];
+let tab = location.hash.slice(1) || "overview";
+const sel = new Map();         // id or path -> size
+let selKind = "photos";        // "photos" | "files"
+let items = [];                // current tab's photo items (for size lookup)
+let threshold = 0.45;
+let pollTimer;
+
+function renderTabs() {
+  $("#tabs").innerHTML = TABS.map((t) => `<button class="${t.id === tab ? "on" : ""}" data-tab="${t.id}">${t.label}</button>`).join("");
+}
+$("#tabs").onclick = (e) => { const b = e.target.closest("button"); if (b) go(b.dataset.tab); };
+function go(t) { tab = t; location.hash = t; sel.clear(); clearTimeout(pollTimer); renderTabs(); updateFooter(); load(); }
+
+function updateFooter() {
+  let n = sel.size, size = 0;
+  sel.forEach((s) => (size += s));
+  $("#footer").classList.toggle("show", n > 0);
+  $("#selText").innerHTML = `<b>${n} selected</b> <span class="muted">· ${fmt(size)}</span>`;
+  $("#delBtn").textContent = selKind === "files" ? "Move to Trash" : "Move to Recently Deleted";
+}
+$("#clearBtn").onclick = () => { sel.clear(); document.querySelectorAll(".sel").forEach((x) => x.classList.remove("sel"));
+  document.querySelectorAll("input[data-path]").forEach((c) => (c.checked = false)); updateFooter(); };
+
+$("#delBtn").onclick = async () => {
+  const n = sel.size; let size = 0; sel.forEach((s) => (size += s));
+  const btn = $("#delBtn"); btn.disabled = true;
+  try {
+    if (selKind === "files") {
+      if (!confirm(`Move ${n} file${n > 1 ? "s" : ""} (${fmt(size)}) to the Trash?\n\nYou can put them back from the Trash until you empty it.`)) return;
+      await post("/api/trash-files", { paths: [...sel.keys()] });
+      toast(`Moved ${n} file${n > 1 ? "s" : ""} to the Trash. Empty the Trash to free the space in iCloud.`);
+    } else {
+      toast("Confirm the delete in the macOS dialog…");
+      const r = await post("/api/delete-photos", { ids: [...sel.keys()] });
+      toast(`Moved ${r.deleted} item${r.deleted > 1 ? "s" : ""} (${fmt(size)}) to Recently Deleted. iCloud frees the space once you empty it in Photos, or after 30 days.`);
+    }
+    sel.clear(); updateFooter(); load();
+  } catch (e) { toast(e.message, true); }
+  finally { btn.disabled = false; }
+};
+
+// ---------- tiles ----------
+function tile(a, { keep } = {}) {
+  const badge = keep === undefined ? "" : `<span class="badge">${a.fav ? "♥ " : ""}${keep ? "Keep" : "Delete"}</span>`;
+  const when = keep === undefined ? day(a.date) : new Date(a.date * 1000).toLocaleTimeString(undefined, { hour: "numeric", minute: "2-digit", second: "2-digit" });
+  const left = a.video ? "▶ " + dur(a.dur) : when;
+  return `<div class="tile ${keep ? "keep" : ""}" tabindex="0" role="checkbox" aria-checked="false" data-id="${a.id}" data-size="${a.size}" data-cap="${esc(a.name)} · ${fmt(a.size)} · ${day(a.date)}">
+    <img loading="lazy" src="/thumb/${a.id}" alt="" onerror="this.outerHTML='<span class=nothumb>No preview</span>'">${badge}
+    <button class="zoom" title="Preview" aria-label="Preview">⤢</button>
+    <span class="meta"><span>${left}</span><span>${fmt(a.size)}</span></span></div>`;
+}
+function setTile(el, on) {
+  const id = el.dataset.id;
+  if (on) sel.set(id, +el.dataset.size); else sel.delete(id);
+  el.classList.toggle("sel", on); el.setAttribute("aria-checked", on);
+  const b = el.querySelector(".badge");
+  if (b) b.textContent = (b.textContent.startsWith("♥") ? "♥ " : "") + (on ? "Delete" : "Keep");
+}
+$("#main").addEventListener("click", (e) => {
+  const z = e.target.closest(".zoom");
+  const t = e.target.closest(".tile");
+  if (z && t) { e.stopPropagation(); return preview(t); }
+  if (t) { setTile(t, !t.classList.contains("sel")); updateFooter(); }
+});
+$("#main").addEventListener("keydown", (e) => {
+  const t = e.target.closest(".tile");
+  if (!t) return;
+  if (e.key === " " || e.key === "Enter") { e.preventDefault(); setTile(t, !t.classList.contains("sel")); updateFooter(); }
+  if (e.key === "p") preview(t);
+});
+function preview(t) { $("#modalImg").src = "/preview/" + t.dataset.id; $("#modalCap").textContent = t.dataset.cap; $("#modal").classList.add("show"); }
+$("#modal").onclick = () => $("#modal").classList.remove("show");
+document.addEventListener("keydown", (e) => { if (e.key === "Escape") $("#modal").classList.remove("show"); });
+
+// ---------- views ----------
+const main = () => $("#main");
+const loading = (msg = "Loading…") => (main().innerHTML = `<div class="empty">${msg}</div>`);
+
+async function load() {
+  selKind = ["drive"].includes(tab) ? "files" : "photos";
+  ({ overview, dupes, videos, screens, drive, messages }[tab] || overview)();
+}
+
+async function overview() {
+  loading("Measuring your iCloud…");
+  const o = await api("/api/overview");
+  const p = o.photos, get = (k) => p[k] || { count: 0, size: 0 };
+  const appsTotal = o.apps.reduce((s, a) => s + a.size, 0);
+  const total = o.photosTotal + o.drive + o.driveTrash + appsTotal + o.messages + o.recentlyDeleted.size;
+  const max = Math.max(o.photosTotal, o.drive, o.messages, appsTotal, 1);
+  $("#sub").textContent = `${fmt(total)} visible from this Mac`;
+  const row = (label, sub, size, act = "", indent = false) => `<div class="ov-row ${indent ? "indent" : ""}">
+    <div class="label"><b>${label}</b><span>${sub}</span></div>
+    <div class="bar"><div class="track"><i style="width:${(size / max * 100).toFixed(1)}%"></i></div></div>
+    <div class="size num">${fmt(size)}</div><div class="act">${act}</div></div>`;
+  const goBtn = (t, l) => `<button class="btn small" data-go="${t}">${l}</button>`;
+  const openBtn = (w, l) => `<button class="btn small" data-open="${w}">${l}</button>`;
+  const s = o.similarity;
+  const simLine = s.error ? `Near-duplicate scan failed: ${esc(s.error)}`
+    : s.done < s.total ? `Scanning for near-duplicates: ${s.done.toLocaleString()} of ${s.total.toLocaleString()} pairs…` : "";
+  main().innerHTML = `
+    <div class="total">
+      <div><b class="num">${fmt(o.photosTotal)}</b><span class="muted">Photos & videos</span></div>
+      <div><b class="num">${fmt(total - o.photosTotal)}</b><span class="muted">Everything else visible here</span></div>
+    </div>
+    <div class="panel">
+      ${row("Photos & videos", `${(get("photo").count + get("video").count + get("screenshot").count + get("screenrec").count).toLocaleString()} items`, o.photosTotal, goBtn("dupes", "Find duplicates"))}
+      ${row("Videos", `${get("video").count.toLocaleString()} videos`, get("video").size, goBtn("videos", "Review"), true)}
+      ${row("Photos", `${get("photo").count.toLocaleString()} photos`, get("photo").size, goBtn("dupes", "Review"), true)}
+      ${row("Screenshots", `${get("screenshot").count.toLocaleString()} screenshots`, get("screenshot").size, goBtn("screens", "Review"), true)}
+      ${row("Screen recordings", `${get("screenrec").count.toLocaleString()} recordings`, get("screenrec").size, goBtn("screens", "Review"), true)}
+      ${o.recentlyDeleted.count ? row("Recently Deleted", `${o.recentlyDeleted.count} items, still using space`, o.recentlyDeleted.size, openBtn("photos", "Open Photos"), true) : ""}
+      ${row("Messages attachments", "Photos & files in your chats", o.messages, goBtn("messages", "Review"))}
+      ${row("iCloud Drive", "Your files in iCloud", o.drive, goBtn("drive", "Review"))}
+      ${o.driveTrash ? row("iCloud Drive Trash", "Deleted files, still using space until you empty the Trash", o.driveTrash, "", true) : ""}
+      ${o.apps.map((a) => row(esc(a.name), APP_HINTS[a.name] || (a.app ? "App data in iCloud" : "Loose folder in iCloud's app-data area"), a.size)).join("")}
+      <div class="ov-row">
+        <div class="label"><b>Device backups, Mail, Notes</b><span>Not readable from a Mac</span></div>
+        <div class="bar muted">iPhone backups are often several GB. Check them in System Settings.</div>
+        <div class="size muted">?</div><div class="act">${openBtn("icloud", "Open iCloud settings")}</div>
+      </div>
+      ${simLine ? `<div class="note">${simLine}</div>` : ""}
+    </div>`;
+  main().querySelectorAll("[data-go]").forEach((b) => (b.onclick = () => go(b.dataset.go)));
+  bindOpen();
+  if (s.done < s.total && !s.error) pollTimer = setTimeout(() => tab === "overview" && overview(), 4000);
+}
+function bindOpen() {
+  main().querySelectorAll("[data-open]").forEach((b) => (b.onclick = () => post("/api/open", { what: b.dataset.open }).catch((e) => toast(e.message, true))));
+}
+
+async function dupes() {
+  if (!main().querySelector("#dupeList")) loading("Finding near-duplicates…");
+  const d = await api("/api/dupes?t=" + threshold);
+  if (tab !== "dupes") return;
+  if (d.error) return (main().innerHTML = `<div class="empty">Near-duplicate scan failed: ${esc(d.error)}</div>`);
+  if (!d.ready) {
+    const pct = d.total ? (d.done / d.total * 100) : 0;
+    main().innerHTML = `<h2>Near-duplicates</h2><p class="lead">Comparing photos taken within a minute of each other. This runs once and is remembered next time.</p>
+      <div class="progress"><i style="width:${pct.toFixed(1)}%"></i></div>
+      <p class="muted num">${d.done.toLocaleString()} of ${d.total.toLocaleString()} pairs</p>`;
+    pollTimer = setTimeout(dupes, 1500);
+    return;
+  }
+  const groups = d.groups;
+  sel.clear();
+  let reclaim = 0, count = 0;
+  for (const g of groups) for (const a of g.items) if (!a.keep) { sel.set(a.id, a.size); reclaim += a.size; count++; }
+  main().innerHTML = `
+    <h2>Near-duplicates</h2>
+    <p class="lead">Similar shots taken within a minute of each other. The best one in each group is kept (favourites are always kept); the rest are pre-selected. Click any photo to flip it. Hover and click ⤢ to see it bigger.</p>
+    <div class="toolbar">
+      <span><b class="num">${groups.length.toLocaleString()}</b> groups · <b class="num">${count.toLocaleString()}</b> extra shots · <b class="num">${fmt(reclaim)}</b></span>
+      <label class="muted">Stricter <input type="range" id="thr" min="0.2" max="0.7" step="0.05" value="${threshold}"> Looser</label>
+    </div>
+    <div id="dupeList">${groups.length ? groups.map((g) => {
+      const extra = g.items.filter((a) => !a.keep).reduce((s, a) => s + a.size, 0);
+      return `<div class="panel group"><div class="gh"><span>${day(g.items[0].date)} · ${g.items.length} similar</span><span>${fmt(extra)} to free</span></div>
+        <div class="grid">${g.items.map((a) => tile(a, { keep: a.keep })).join("")}</div></div>`;
+    }).join("") : `<div class="empty">No near-duplicates at this setting. Try moving the slider towards Looser.</div>`}</div>`;
+  main().querySelectorAll(".tile").forEach((t) => { if (sel.has(t.dataset.id)) setTile(t, true); });
+  $("#thr").onchange = (e) => { threshold = +e.target.value; dupes(); };
+  updateFooter();
+}
+
+async function photoGrid(path, title, lead, emptyMsg) {
+  loading();
+  items = await api(path);
+  const total = items.reduce((s, a) => s + a.size, 0);
+  main().innerHTML = `<h2>${title}</h2><p class="lead">${lead}</p>
+    <div class="toolbar"><span><b class="num">${items.length.toLocaleString()}</b> items · <b class="num">${fmt(total)}</b></span>
+    ${items.length ? `<button class="btn small" id="selAll">Select all</button>` : ""}</div>
+    ${items.length ? `<div class="grid">${items.map((a) => tile(a)).join("")}</div>` : `<div class="empty">${emptyMsg}</div>`}`;
+  const all = $("#selAll");
+  if (all) all.onclick = () => { main().querySelectorAll(".tile").forEach((t) => setTile(t, true)); updateFooter(); };
+}
+const videos = () => photoGrid("/api/videos", "Biggest videos", "Largest first. Videos are usually the quickest way to free space. Click to select. Hover and click ⤢ to preview.", "No videos.");
+const screens = () => photoGrid("/api/screens", "Screenshots & screen recordings", "Largest first. These are often safe to clear in bulk.", "No screenshots or screen recordings.");
+
+async function fileTable(path, opts) {
+  loading("Reading files…");
+  const files = await api(path);
+  const total = files.reduce((s, f) => s + f.size, 0);
+  main().innerHTML = `<h2>${opts.title}</h2><p class="lead">${opts.lead}</p>
+    <div class="toolbar"><span>Largest <b class="num">${files.length.toLocaleString()}</b> files · <b class="num">${fmt(total)}</b></span>${opts.extra || ""}</div>
+    <div class="panel">${files.length ? `<table><thead><tr>${opts.pick ? "<th></th>" : ""}<th>Name</th><th class="r">Size</th><th class="r hide-sm">Modified</th><th></th></tr></thead><tbody>
+    ${files.map((f) => {
+      const parts = f.rel.split("/"); const name = parts.pop();
+      return `<tr>${opts.pick ? `<td><input type="checkbox" data-path="${esc(f.path)}" data-size="${f.size}" aria-label="Select ${esc(name)}"></td>` : ""}
+        <td class="name">${esc(name)}${parts.length ? `<div class="path">${esc(parts.join(" / "))}</div>` : ""}</td>
+        <td class="r num">${fmt(f.size)}</td><td class="r num muted hide-sm">${day(f.mtime)}</td>
+        <td class="r"><button class="btn small" data-reveal="${esc(f.path)}">Show in Finder</button></td></tr>`;
+    }).join("")}</tbody></table>` : `<div class="empty">No files.</div>`}</div>`;
+  main().querySelectorAll("[data-reveal]").forEach((b) => (b.onclick = () => post("/api/reveal", { path: b.dataset.reveal }).catch((e) => toast(e.message, true))));
+  main().querySelectorAll("input[data-path]").forEach((c) => (c.onchange = () => {
+    if (c.checked) sel.set(c.dataset.path, +c.dataset.size); else sel.delete(c.dataset.path);
+    c.closest("tr").classList.toggle("sel", c.checked); updateFooter();
+  }));
+  bindOpen();
+}
+const drive = () => fileTable("/api/drive", { pick: true, title: "iCloud Drive",
+  lead: "Your largest iCloud Drive files. Selected files go to the Trash, and iCloud frees the space when you empty it." });
+async function messages() {
+  loading("Reading Messages…");
+  const list = await api("/api/messages");
+  const total = list.reduce((s, a) => s + a.size, 0);
+  main().innerHTML = `<h2>Messages attachments</h2>
+    <p class="lead">Your largest attachments and the chat they're in. Click one to open it. This tab is view only: deleting the files directly can leave Messages out of sync with iCloud, so remove them in macOS Storage settings (Messages → Review) or by deleting them in the chat.</p>
+    <div class="toolbar"><span>Largest <b class="num">${list.length.toLocaleString()}</b> attachments · <b class="num">${fmt(total)}</b></span>
+      <button class="btn small" data-open="storage">Open Storage settings</button></div>
+    ${list.length ? `<div class="mgrid">${list.map((a) => `
+      <div class="panel mcard">
+        <button class="thumb" data-file="${esc(a.path)}" title="Open ${esc(a.name)}">
+          <img loading="lazy" src="/mthumb?p=${encodeURIComponent(a.path)}" alt="" onerror="this.outerHTML='<span class=nothumb>${esc(a.name.split(".").pop().toUpperCase())}</span>'">
+          <span class="meta"><span>${/\.(mov|mp4|m4v|3gp)$/i.test(a.name) ? "▶ Video" : ""}</span><span>${fmt(a.size)}</span></span>
+        </button>
+        <div class="cap">
+          <div class="who">${a.who ? `${a.fromMe ? "Sent to" : "From"} ${esc(a.who)}` : "Unknown chat"}</div>
+          <div class="muted">${day(a.mtime)}${a.copies > 1 ? ` · ${a.copies} copies` : ""}</div>
+          <div class="fname" title="${esc(a.name)}">${esc(a.name)}</div>
+          <button class="linkbtn" data-reveal="${esc(a.path)}">Show in Finder</button>
+        </div>
+      </div>`).join("")}</div>` : `<div class="empty">No attachments.</div>`}`;
+  main().querySelectorAll("[data-file]").forEach((b) => (b.onclick = () => post("/api/open-file", { path: b.dataset.file }).catch((e) => toast(e.message, true))));
+  main().querySelectorAll("[data-reveal]").forEach((b) => (b.onclick = () => post("/api/reveal", { path: b.dataset.reveal }).catch((e) => toast(e.message, true))));
+  bindOpen();
+}
+
+window.addEventListener("hashchange", () => { const t = location.hash.slice(1); if (t && t !== tab) go(t); });
+renderTabs(); updateFooter(); load();
+</script>
+</body>
+</html>
