@@ -43,7 +43,7 @@ The agent runs the setup check, installs what's missing, opens the right System 
    ```
 2. Clone the repo:
    ```sh
-   git clone git@github.com:mic2112/icloud-scanner.git
+   git clone https://github.com/mic2112/icloud-scanner.git
    cd icloud-scanner
    ```
 3. Give your terminal app (Terminal, iTerm, VS Code...) **Full Disk Access**: System Settings → Privacy & Security → Full Disk Access. Without it, the app can't read your Photos library or your Messages history. Quit the terminal with ⌘Q and reopen it afterwards.
