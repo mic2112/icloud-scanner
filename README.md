@@ -20,7 +20,7 @@ iCloud frees the space once you empty Recently Deleted or the Trash.
 
 ## Requirements
 
-- macOS 11 or later, with your library in the default `~/Pictures/Photos Library.photoslibrary`
+- macOS 13 or later (tested on macOS 26), with your library in the default `~/Pictures/Photos Library.photoslibrary`. The app reads Apple's private Photos and Messages databases, which can change between macOS versions.
 - Python 3.7+ (standard library only, no `pip install`)
 - Xcode Command Line Tools, used to build the small Swift helper on first run
 
