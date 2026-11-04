@@ -27,7 +27,34 @@ UUID_NAME = re.compile(r"^[0-9A-F]{8}-[0-9A-F]{4}-[0-9A-F]{4}-[0-9A-F]{4}-[0-9A-
 SETTINGS_URLS = {
     "icloud": "x-apple.systempreferences:com.apple.systempreferences.AppleIDSettings:icloud",
     "storage": "x-apple.systempreferences:com.apple.settings.Storage",
+    "fulldisk": "x-apple.systempreferences:com.apple.preference.security?Privacy_AllFiles",
+    "photos-privacy": "x-apple.systempreferences:com.apple.preference.security?Privacy_Photos",
 }
+TERMINALS = {"Apple_Terminal": "Terminal", "iTerm.app": "iTerm", "vscode": "Visual Studio Code",
+             "WarpTerminal": "Warp", "ghostty": "Ghostty", "WezTerm": "WezTerm", "Hyper": "Hyper"}
+PHOTOS_DENIED = 2  # helper exit code when Photos access is off
+
+
+def terminal_name():
+    """The app macOS grants permissions to: the terminal (or agent app) that started us."""
+    bundle = os.environ.get("__CFBundleIdentifier", "")
+    if re.fullmatch(r"[\w.-]+", bundle):
+        r = subprocess.run(["lsappinfo", "info", "-only", "name", bundle], capture_output=True, text=True)
+        name = re.search(r'"LSDisplayName"="(.+)"', r.stdout)  # the app is running: it started us
+        if name:
+            return name.group(1)
+    return TERMINALS.get(os.environ.get("TERM_PROGRAM", ""), "your terminal app")
+
+
+def has_full_disk_access():
+    """Reading the user's TCC database needs Full Disk Access, so it is a reliable probe."""
+    try:
+        with open(os.path.join(HOME, "Library", "Application Support", "com.apple.TCC", "TCC.db"), "rb"):
+            return True
+    except PermissionError:
+        return False
+    except OSError:
+        return True  # file missing: can't tell, so don't nag
 
 # ---------- Photos ----------
 
@@ -258,21 +285,22 @@ def message_attachments(limit=300):
 
 
 def quicklook_thumb(path):
-    """PNG thumbnail of any file via Quick Look, cached."""
-    import hashlib
+    """PNG thumbnail of any file via Quick Look, cached. None if Quick Look can't make one in time."""
+    import hashlib, shutil, tempfile
     os.makedirs(THUMBS, exist_ok=True)
     out = os.path.join(THUMBS, hashlib.sha1(path.encode()).hexdigest() + ".png")
     if not os.path.exists(out):
-        tmp = os.path.join(THUMBS, "tmp-" + secrets.token_hex(6))
-        os.makedirs(tmp)
-        with QL_SLOTS:
-            subprocess.run(["qlmanage", "-t", "-s", "360", "-o", tmp, path], capture_output=True, timeout=30)
-        made = [os.path.join(tmp, x) for x in os.listdir(tmp)]
-        if made:
-            os.replace(made[0], out)
-        for x in os.listdir(tmp):
-            os.remove(os.path.join(tmp, x))
-        os.rmdir(tmp)
+        tmp = tempfile.mkdtemp(prefix="tmp-", dir=THUMBS)
+        try:
+            with QL_SLOTS:
+                subprocess.run(["qlmanage", "-t", "-s", "360", "-o", tmp, path], capture_output=True, timeout=15)
+            made = os.listdir(tmp)
+            if made:
+                os.replace(os.path.join(tmp, made[0]), out)
+        except subprocess.TimeoutExpired:
+            pass  # the page shows the file type instead
+        finally:
+            shutil.rmtree(tmp, ignore_errors=True)
     return out if os.path.exists(out) else None
 
 
@@ -341,6 +369,8 @@ class Handler(BaseHTTPRequestHandler):
                 return self.send(200, f.read().replace(b"__TOKEN__", TOKEN.encode()), "text/html; charset=utf-8")
         if parts[0] in ("thumb", "preview") and len(parts) == 2 and UUID_RE.match(parts[1]):
             return self.send_file(thumb_path(parts[1]) if parts[0] == "thumb" else preview_path(parts[1]))
+        if url.path == "/api/access":
+            return self.send(200, {"fullDisk": STATE["fullDisk"], "terminal": terminal_name()})
         if url.path == "/api/overview":
             return self.send(200, overview())
         if url.path == "/api/dupes":
@@ -381,6 +411,9 @@ class Handler(BaseHTTPRequestHandler):
             if not ids:
                 return self.send(400, {"error": "nothing selected"})
             r = subprocess.run([HELPER, "delete", *ids], capture_output=True, text=True)
+            if r.returncode == PHOTOS_DENIED:
+                return self.send(403, {"error": r.stderr.strip(), "permission": "photos",
+                                       "terminal": terminal_name()})
             if r.returncode:
                 return self.send(409, {"error": r.stderr.strip() or "delete failed"})
             gone = set(ids)
@@ -450,12 +483,69 @@ def selftest():
     print("selftest ok")
 
 
-if __name__ == "__main__":
+def check():
+    """Setup report for people and agents: one line per requirement. True when ready to run."""
+    import platform
+    app, todo = terminal_name(), []
+
+    def report(good, what, fix="", required=True):
+        print(("ok   " if good else "FIX  " if required else "note ") + what)
+        if not good:
+            if fix:
+                print("     " + fix)
+            if required:
+                todo.append(what)
+
+    mac = platform.mac_ver()[0] or "0"
+    report(int(mac.split(".")[0]) >= 13, f"macOS {mac} (needs 13 or later)", "Not supported: update macOS.")
+    clt = subprocess.run(["xcode-select", "-p"], capture_output=True).returncode == 0
+    report(clt, "Xcode Command Line Tools", "Run: xcode-select --install   then click Install in the window that opens.")
+    helper = False
+    if clt:
+        try:
+            build_helper()
+            helper = True
+        except (subprocess.CalledProcessError, OSError):
+            pass
+        report(helper, "Swift helper builds", "The compiler error is printed above.")
+    fda = has_full_disk_access()
+    report(fda, f"Full Disk Access for {app}",
+           f'Run: open "{SETTINGS_URLS["fulldisk"]}"   turn on {app}, then quit {app} (Cmd+Q) and reopen it.')
+    if fda:
+        try:
+            report(True, f"Photos library ({len(load_assets()):,} items)")
+        except sqlite3.Error:
+            report(False, "Photos library not found at ~/Pictures/Photos Library.photoslibrary",
+                   "Only the default library is supported. The Photos tabs stay empty; the rest works.", required=False)
+    if helper:
+        status = subprocess.run([HELPER, "auth"], capture_output=True, text=True).stdout.strip()
+        report(status in ("authorized", "notDetermined"),
+               f"Photos access for {app}: {status}" + (" (macOS asks on the first delete)" if status == "notDetermined" else ""),
+               f'Run: open "{SETTINGS_URLS["photos-privacy"]}"   and turn on {app}.')
+    print("\nReady. Start it with: python3 cleaner.py" if not todo
+          else f"\n{len(todo)} to fix. Then run: python3 cleaner.py --check")
+    return not todo
+
+
+def main():
     if "--selftest" in sys.argv:
         selftest()
-        sys.exit()
+        return
+    if "--check" in sys.argv:
+        sys.exit(0 if check() else 1)
+    import glob, shutil
+    for d in glob.glob(os.path.join(THUMBS, "tmp-*")):  # left behind if a previous run was killed mid-thumbnail
+        shutil.rmtree(d, ignore_errors=True)
     build_helper()
-    STATE.update(assets=load_assets(), sim=Similarity())
+    full_disk = has_full_disk_access()
+    try:
+        assets = load_assets()
+    except sqlite3.Error as e:
+        assets = []
+        print(f"Can't read the Photos library ({e}).")
+    if not full_disk:
+        print(f"Full Disk Access is off for {terminal_name()}. The page shows how to turn it on.")
+    STATE.update(assets=assets, sim=Similarity(), fullDisk=full_disk)
     threading.Thread(target=STATE["sim"].run, args=(photos_by_date(),), daemon=True).start()
     server = ThreadingHTTPServer(("127.0.0.1", 0), Handler)  # OS picks a free port
     url = f"http://127.0.0.1:{server.server_port}/"
@@ -466,3 +556,7 @@ if __name__ == "__main__":
         server.serve_forever()
     except KeyboardInterrupt:
         pass
+
+
+if __name__ == "__main__":
+    main()

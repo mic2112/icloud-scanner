@@ -9,12 +9,12 @@
 :root {
   color-scheme: light dark;
   --bg: #f6f6f4; --panel: #ffffff; --text: #1d1d1f; --muted: #6e6e73; --line: #e3e3e0;
-  --accent: #0a66d8; --danger: #d92d20; --keep: #1f8a4c; --bar: #0a66d8; --chip: #efefec;
+  --accent: #0a66d8; --on-accent: #ffffff; --danger: #d92d20; --keep: #1f8a4c; --bar: #0a66d8; --chip: #efefec;
   --shadow: 0 1px 2px rgba(0,0,0,.06), 0 4px 16px rgba(0,0,0,.05);
 }
 @media (prefers-color-scheme: dark) {
   :root { --bg: #161617; --panel: #1f1f21; --text: #f2f2f2; --muted: #9a9aa0; --line: #2f2f33;
-          --accent: #4c9bff; --danger: #ff5b4f; --keep: #3fbf74; --bar: #4c9bff; --chip: #2a2a2d;
+          --accent: #4c9bff; --on-accent: #08182e; --danger: #ff5b4f; --keep: #3fbf74; --bar: #4c9bff; --chip: #2a2a2d;
           --shadow: 0 1px 2px rgba(0,0,0,.4); }
 }
 * { box-sizing: border-box; }
@@ -48,6 +48,8 @@ p.lead { color: var(--muted); margin: 0 0 16px; max-width: 720px; }
 .btn.primary:focus-visible { outline-color: var(--danger); }
 .btn.primary:disabled { opacity: .4; cursor: default; }
 .btn.small { padding: 5px 11px; min-height: 32px; font-size: 13px; }
+.btn.accent { background: var(--accent); border-color: var(--accent); color: var(--on-accent); font-weight: 600; }
+.btn.accent:active { filter: brightness(.92); }
 .muted { color: var(--muted); }
 .num { font-variant-numeric: tabular-nums; }
 
@@ -87,7 +89,7 @@ p.lead { color: var(--muted); margin: 0 0 16px; max-width: 720px; }
 .tile:focus-visible { outline: 3px solid var(--accent); outline-offset: 1px; }
 .group { padding: 12px; margin-bottom: 10px; }
 .group .grid { grid-template-columns: repeat(auto-fill, 124px); }
-.tile .nothumb { position: absolute; inset: 0; display: flex; align-items: center; justify-content: center; color: var(--muted); font-size: 12px; }
+.nothumb { position: absolute; inset: 0; display: flex; align-items: center; justify-content: center; color: var(--muted); font-size: 12px; }
 .group .gh { display: flex; justify-content: space-between; color: var(--muted); font-size: 12px; margin-bottom: 8px; }
 
 /* messages */
@@ -99,6 +101,12 @@ p.lead { color: var(--muted); margin: 0 0 16px; max-width: 720px; }
 .mcard .thumb .meta { position: absolute; left: 0; right: 0; bottom: 0; padding: 14px 8px 5px; font-size: 11px; color: #fff;
                       background: linear-gradient(transparent, rgba(0,0,0,.65)); display: flex; justify-content: space-between; }
 .mcard .thumb:hover img { opacity: .85; }
+.ph { position: absolute; inset: 0; display: flex; align-items: center; justify-content: center; gap: 8px;
+      color: var(--muted); font-size: 12px; }
+.spinner { width: 14px; height: 14px; border-radius: 50%; border: 2px solid var(--line); border-top-color: var(--muted);
+           animation: spin .8s linear infinite; }
+@keyframes spin { to { transform: rotate(360deg); } }
+@media (prefers-reduced-motion: reduce) { .spinner { animation: none; } }
 .mcard .thumb:focus-visible { outline: 3px solid var(--accent); outline-offset: -3px; }
 .mcard .cap { padding: 8px 10px 10px; font-size: 12px; display: flex; flex-direction: column; gap: 1px; }
 .mcard .who { font-weight: 600; font-size: 13px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
@@ -134,6 +142,28 @@ footer .what b { font-size: 15px; }
          padding: 10px 16px; border-radius: 10px; z-index: 11; display: none; max-width: 90vw; box-shadow: var(--shadow); }
 .toast.err { background: var(--danger); color: #fff; }
 .empty { padding: 40px; text-align: center; color: var(--muted); }
+
+/* permissions: banner + dialog */
+#banner:not(:empty) { padding-top: 24px; }
+.alert { display: flex; align-items: center; gap: 16px; padding: 16px; }
+.alert .txt { flex: 1; }
+.alert .txt b { display: block; }
+.alert .txt span { color: var(--muted); }
+.ficon { flex: none; display: inline-flex; align-items: center; justify-content: center; width: 40px; height: 40px;
+         border-radius: 50%; color: var(--accent); background: color-mix(in srgb, var(--accent) 14%, transparent); }
+.ficon svg { width: 20px; height: 20px; }
+dialog { border: 0; padding: 24px; border-radius: 16px; width: min(480px, calc(100vw - 32px)); background: var(--panel);
+         color: var(--text); box-shadow: 0 20px 24px -4px rgba(0,0,0,.1), 0 8px 8px -4px rgba(0,0,0,.04); }
+dialog::backdrop { background: rgba(12,17,29,.6); }
+dialog .ficon { width: 48px; height: 48px; margin-bottom: 16px; }
+dialog .ficon svg { width: 24px; height: 24px; }
+dialog h2 { font-size: 18px; line-height: 28px; margin: 0 0 4px; }
+.dbody p { margin: 0 0 12px; color: var(--muted); }
+.dbody ol { margin: 0 0 12px; padding-left: 20px; }
+.dbody li { margin: 6px 0; padding-left: 4px; }
+.dbody code { font: 13px ui-monospace, SFMono-Regular, Menlo, monospace; background: var(--chip); padding: 1px 5px; border-radius: 4px; }
+.dactions { display: flex; justify-content: flex-end; gap: 12px; margin-top: 24px; }
+.dactions .btn { min-height: 40px; padding-left: 16px; padding-right: 16px; }
 input[type=range] { width: 180px; accent-color: var(--accent); }
 @media (max-width: 760px) {
   .ov-row { grid-template-columns: 1fr 80px; }
@@ -151,7 +181,14 @@ input[type=range] { width: 180px; accent-color: var(--accent); }
     <nav id="tabs"></nav>
   </div>
 </header>
+<div class="wrap" id="banner"></div>
 <main class="wrap" id="main"></main>
+<dialog id="perm" aria-labelledby="permTitle">
+  <span class="ficon" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="4" y="11" width="16" height="10" rx="2"/><path d="M8 11V7a4 4 0 0 1 8 0v4"/></svg></span>
+  <h2 id="permTitle"></h2>
+  <div class="dbody" id="permBody"></div>
+  <div class="dactions"><button class="btn" id="permClose">Close</button><button class="btn accent" id="permOpen" autofocus>Open System Settings</button></div>
+</dialog>
 <footer id="footer"><div class="wrap">
   <div class="what" id="selText"></div>
   <button class="btn" id="clearBtn">Clear</button>
@@ -171,7 +208,7 @@ const api = (p) => fetch(p).then((r) => r.json());
 async function post(p, body) {
   const r = await fetch(p, { method: "POST", headers: { "X-Token": TOKEN, "Content-Type": "application/json" }, body: JSON.stringify(body) });
   const j = await r.json();
-  if (!r.ok) throw new Error(j.error || "Request failed");
+  if (!r.ok) throw Object.assign(new Error(j.error || "Request failed"), { data: j });
   return j;
 }
 function toast(msg, err) {
@@ -202,7 +239,11 @@ function renderTabs() {
   $("#tabs").innerHTML = TABS.map((t) => `<button class="${t.id === tab ? "on" : ""}" data-tab="${t.id}">${t.label}</button>`).join("");
 }
 $("#tabs").onclick = (e) => { const b = e.target.closest("button"); if (b) go(b.dataset.tab); };
-function go(t) { tab = t; location.hash = t; sel.clear(); clearTimeout(pollTimer); renderTabs(); updateFooter(); load(); }
+function go(t) {
+  // cancel thumbnails still loading, so they don't hold the browser's few connections to the server
+  main().querySelectorAll("img").forEach((i) => i.removeAttribute("src"));
+  tab = t; location.hash = t; sel.clear(); clearTimeout(pollTimer); renderTabs(); updateFooter(); load();
+}
 
 function updateFooter() {
   let n = sel.size, size = 0;
@@ -228,7 +269,10 @@ $("#delBtn").onclick = async () => {
       toast(`Moved ${r.deleted} item${r.deleted > 1 ? "s" : ""} (${fmt(size)}) to Recently Deleted. iCloud frees the space once you empty it in Photos, or after 30 days.`);
     }
     sel.clear(); updateFooter(); load();
-  } catch (e) { toast(e.message, true); }
+  } catch (e) {
+    if (e.data && e.data.permission) { access.terminal = e.data.terminal; permDialog(e.data.permission); }
+    else toast(e.message, true);
+  }
   finally { btn.disabled = false; }
 };
 
@@ -277,6 +321,7 @@ async function load() {
 async function overview() {
   loading("Measuring your iCloud…");
   const o = await api("/api/overview");
+  if (tab !== "overview") return;  // user switched tabs while this loaded
   const p = o.photos, get = (k) => p[k] || { count: 0, size: 0 };
   const appsTotal = o.apps.reduce((s, a) => s + a.size, 0);
   const total = o.photosTotal + o.drive + o.driveTrash + appsTotal + o.messages + o.recentlyDeleted.size;
@@ -358,7 +403,9 @@ async function dupes() {
 
 async function photoGrid(path, title, lead, emptyMsg) {
   loading();
-  items = await api(path);
+  const t = tab, list = await api(path);
+  if (tab !== t) return;
+  items = list;
   const total = items.reduce((s, a) => s + a.size, 0);
   main().innerHTML = `<h2>${title}</h2><p class="lead">${lead}</p>
     <div class="toolbar"><span><b class="num">${items.length.toLocaleString()}</b> items · <b class="num">${fmt(total)}</b></span>
@@ -372,7 +419,8 @@ const screens = () => photoGrid("/api/screens", "Screenshots & screen recordings
 
 async function fileTable(path, opts) {
   loading("Reading files…");
-  const files = await api(path);
+  const t = tab, files = await api(path);
+  if (tab !== t) return;
   const total = files.reduce((s, f) => s + f.size, 0);
   main().innerHTML = `<h2>${opts.title}</h2><p class="lead">${opts.lead}</p>
     <div class="toolbar"><span>Largest <b class="num">${files.length.toLocaleString()}</b> files · <b class="num">${fmt(total)}</b></span>${opts.extra || ""}</div>
@@ -396,6 +444,7 @@ const drive = () => fileTable("/api/drive", { pick: true, title: "iCloud Drive",
 async function messages() {
   loading("Reading Messages…");
   const list = await api("/api/messages");
+  if (tab !== "messages") return;
   const total = list.reduce((s, a) => s + a.size, 0);
   main().innerHTML = `<h2>Messages attachments</h2>
     <p class="lead">Your largest attachments and the chat they're in. Click one to open it. This tab is view only: deleting the files directly can leave Messages out of sync with iCloud, so remove them in macOS Storage settings (Messages → Review) or by deleting them in the chat.</p>
@@ -404,7 +453,8 @@ async function messages() {
     ${list.length ? `<div class="mgrid">${list.map((a) => `
       <div class="panel mcard">
         <button class="thumb" data-file="${esc(a.path)}" title="Open ${esc(a.name)}">
-          <img loading="lazy" src="/mthumb?p=${encodeURIComponent(a.path)}" alt="" onerror="this.outerHTML='<span class=nothumb>${esc(a.name.split(".").pop().toUpperCase())}</span>'">
+          <span class="ph" aria-hidden="true"><i class="spinner"></i>Loading preview</span>
+          <img loading="lazy" src="/mthumb?p=${encodeURIComponent(a.path)}" alt="" onload="this.previousElementSibling.remove()" onerror="this.previousElementSibling.remove(); this.outerHTML='<span class=nothumb>${esc(a.name.split(".").pop().toUpperCase())}</span>'">
           <span class="meta"><span>${/\.(mov|mp4|m4v|3gp)$/i.test(a.name) ? "▶ Video" : ""}</span><span>${fmt(a.size)}</span></span>
         </button>
         <div class="cap">
@@ -418,6 +468,46 @@ async function messages() {
   main().querySelectorAll("[data-reveal]").forEach((b) => (b.onclick = () => post("/api/reveal", { path: b.dataset.reveal }).catch((e) => toast(e.message, true))));
   bindOpen();
 }
+
+// ---------- permissions ----------
+let access = { fullDisk: true, terminal: "your terminal app" };
+const PERMS = {
+  fulldisk: (app) => ({
+    title: "Turn on Full Disk Access",
+    open: "fulldisk",
+    body: `<p>iCloud Cleaner reads your Photos library and Messages history straight from this Mac. macOS only allows that for an app with Full Disk Access. Here that's <b>${esc(app)}</b>, the app running the cleaner.</p>
+      <ol><li>Click <b>Open System Settings</b>.</li>
+      <li>Turn on <b>${esc(app)}</b>. If it isn't listed, click <b>+</b> and pick it from Applications${app === "Terminal" ? " → Utilities" : ""}.</li>
+      <li>Quit ${esc(app)} with ⌘Q, open it again, and run <code>python3 cleaner.py</code>.</li></ol>
+      <p>Nothing leaves your Mac, and the cleaner only deletes what you pick.</p>`,
+  }),
+  photos: (app) => ({
+    title: "Allow access to Photos",
+    open: "photos-privacy",
+    body: `<p>To move photos to Recently Deleted, macOS needs Photos access for <b>${esc(app)}</b>.</p>
+      <ol><li>Click <b>Open System Settings</b>.</li>
+      <li>Turn on <b>${esc(app)}</b> in the list.</li>
+      <li>Come back here and click <b>Move to Recently Deleted</b> again.</li></ol>`,
+  }),
+};
+function permDialog(kind) {
+  const d = PERMS[kind](access.terminal);
+  $("#toast").style.display = "none";
+  $("#permTitle").textContent = d.title; $("#permBody").innerHTML = d.body; $("#permOpen").dataset.what = d.open;
+  if (!$("#perm").open) $("#perm").showModal();
+}
+$("#permOpen").onclick = () => post("/api/open", { what: $("#permOpen").dataset.what }).catch((e) => toast(e.message, true));
+$("#permClose").onclick = () => $("#perm").close();
+document.addEventListener("click", (e) => { const b = e.target.closest("[data-perm]"); if (b) permDialog(b.dataset.perm); });
+api("/api/access").then((a) => {
+  access = a;
+  if (a.fullDisk) return;
+  $("#banner").innerHTML = `<div class="panel alert" role="alert">
+    <span class="ficon" aria-hidden="true">${$("#perm .ficon").innerHTML}</span>
+    <div class="txt"><b>Full Disk Access is off</b><span>Photos and Messages show as empty until you turn it on for ${esc(a.terminal)}.</span></div>
+    <button class="btn small accent" data-perm="fulldisk">Show me how</button></div>`;
+  permDialog("fulldisk");
+});
 
 window.addEventListener("hashchange", () => { const t = location.hash.slice(1); if (t && t !== tab) go(t); });
 renderTabs(); updateFooter(); load();

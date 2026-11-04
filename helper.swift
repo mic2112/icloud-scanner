@@ -1,15 +1,15 @@
 // Native helper for cleaner.py. Subcommands:
 //   similar          stdin: "uuidA\tpathA\tuuidB\tpathB" per line -> stdout: "uuidA\tuuidB\tdistance"
-//   delete UUID...   moves Photos assets to Recently Deleted (macOS asks to confirm)
+//   delete UUID...   moves Photos assets to Recently Deleted (macOS asks to confirm); exit 2 = no Photos access
 //   trash PATH...    moves files to the Trash (Put Back works)
 //   auth             prints Photos authorization status
 import Foundation
 import Photos
 import Vision
 
-func fail(_ msg: String) -> Never {
+func fail(_ msg: String, code: Int32 = 1) -> Never {
     FileHandle.standardError.write((msg + "\n").data(using: .utf8)!)
-    exit(1)
+    exit(code)
 }
 
 func featurePrint(_ path: String) -> VNFeaturePrintObservation? {
@@ -43,7 +43,7 @@ func authorize() async -> PHAuthorizationStatus {
 
 func delete(_ uuids: [String]) async {
     guard await authorize() == .authorized else {
-        fail("Photos access denied. Allow it in System Settings > Privacy & Security > Photos for your Terminal app.")
+        fail("Photos access denied. Allow it in System Settings > Privacy & Security > Photos for your Terminal app.", code: 2)
     }
     let assets = PHAsset.fetchAssets(withLocalIdentifiers: uuids.map { "\($0)/L0/001" }, options: nil)
     guard assets.count > 0 else { fail("None of those items were found in Photos.") }
