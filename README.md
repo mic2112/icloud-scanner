@@ -2,6 +2,8 @@
 
 A local web page that shows what fills your iCloud and lets you delete what you pick. It runs only on your Mac, and nothing is uploaded.
 
+![iCloud Cleaner overview](docs/screenshot.png)
+
 ## What it shows
 
 - **Overview:** space used by Photos, iCloud Drive, Messages attachments and app data in iCloud.
